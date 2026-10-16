@@ -1,0 +1,6 @@
+{
+  "name": "Laam Luxury Fashion",
+  "description": "Discover authentic South Asian designer fashion, luxury pret, festive formals, and bridal couture with global express delivery.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

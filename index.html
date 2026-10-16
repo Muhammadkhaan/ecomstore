@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        try {
+          var _origFetch = window.fetch ? window.fetch.bind(window) : undefined;
+          var _currentFetch = _origFetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return _currentFetch;
+            },
+            set: function(fn) {
+              _currentFetch = fn;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e1) {
+          try {
+            var _protoFetch = Window.prototype.fetch;
+            Object.defineProperty(Window.prototype, 'fetch', {
+              get: function() {
+                return _protoFetch;
+              },
+              set: function(fn) {
+                _protoFetch = fn;
+              },
+              configurable: true,
+              enumerable: true
+            });
+          } catch (e2) {}
+        }
+      })();
+    </script>
+    <title>Laam Luxury Fashion — Designer Pret & Festive Formals</title>
+    <meta name="description" content="Discover authentic South Asian designer fashion, luxury pret, festive formals, and bridal couture with global express delivery." />
+    <meta property="og:title" content="Laam Luxury Fashion — Designer Pret & Festive Formals" />
+    <meta property="og:description" content="Discover authentic South Asian designer fashion, luxury pret, festive formals, and bridal couture with global express delivery." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
