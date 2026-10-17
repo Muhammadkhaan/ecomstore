@@ -4,13 +4,14 @@ import path from 'path';
 import { store } from './src/server/store.ts';
 import { validateUrlForSSRF } from './src/server/ssrf.ts';
 import { adminRouter } from './src/server/adminRoutes.ts';
-import { initDatabase } from './src/server/db.ts';
+import { initDatabase, memoryStore, isUsingMemoryFallback, getPool } from './src/server/db.ts';
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
+  app.use(express.static(path.join(process.cwd(), 'public')));
 
   // Initialize Database
   await initDatabase();
@@ -27,6 +28,44 @@ async function startServer() {
       version: '2.0.0',
       time: new Date().toISOString(),
     });
+  });
+
+  // Public Schema Markup Endpoint
+  app.get('/api/schemas/public', async (req, res) => {
+    const { referenceType, referenceId } = req.query;
+    if (isUsingMemoryFallback()) {
+      let results = memoryStore.schemas.filter((s: any) => s.isEnabled);
+      if (referenceType) results = results.filter((s: any) => s.referenceType === referenceType || s.referenceType === 'global');
+      if (referenceId) results = results.filter((s: any) => s.referenceId === referenceId || s.referenceId === 'global');
+      return res.json({ schemas: results });
+    }
+    try {
+      const pool = await getPool();
+      let query = 'SELECT * FROM admin_schemas WHERE is_enabled = 1';
+      const params: any[] = [];
+      if (referenceType) {
+        query += ' AND (reference_type = ? OR reference_type = "global")';
+        params.push(referenceType);
+      }
+      if (referenceId) {
+        query += ' AND (reference_id = ? OR reference_id = "global")';
+        params.push(referenceId);
+      }
+      query += ' ORDER BY created_at DESC';
+      const [rows]: any = await pool!.query(query, params);
+      const mapped = rows.map((r: any) => ({
+        id: r.id,
+        referenceType: r.reference_type,
+        referenceId: r.reference_id,
+        name: r.name,
+        schemaType: r.schema_type,
+        jsonContent: r.json_content,
+        isEnabled: Boolean(r.is_enabled)
+      }));
+      res.json({ schemas: mapped });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Sitemap.xml

@@ -77,6 +77,16 @@ class MemoryStore {
     { id: 'col-2', title: 'Festive Formals 2026', handle: 'festive-formals', type: 'rule', rule: 'category = festive', status: 'Active', image: PRODUCTS[4].image },
   ];
 
+  media = PRODUCTS.slice(0, 8).map((p, i) => ({
+    id: `media-${i + 1}`,
+    name: p.name,
+    url: p.image,
+    altText: p.name,
+    fileSize: 245000,
+    fileType: 'image/jpeg',
+    uploadedAt: new Date(Date.now() - i * 86400000).toISOString()
+  }));
+
   orders = [
     {
       id: 'ord-1001',
@@ -129,8 +139,250 @@ class MemoryStore {
     accentColor: '#E04F16'
   };
 
-  storePages = [
-    { id: 'page-1', title: 'About Laam Luxury', handle: 'about-us', type: 'page', content: 'The premier global destination for authentic South Asian fashion...', status: 'Published' }
+  storePages: any[] = [
+    {
+      id: 'page-1',
+      title: 'About Laam Luxury',
+      handle: 'about-us',
+      type: 'page',
+      content: 'The premier global destination for authentic South Asian fashion...',
+      builderContent: {
+        schemaVersion: 1,
+        sections: [
+          {
+            id: 'sec-hero-about',
+            type: 'hero',
+            title: 'About Hero',
+            disabled: false,
+            settings: {
+              heading: 'About LAAM Luxury Fashion',
+              subheading: 'The premier global destination for authentic South Asian couture and pret wear.',
+              alignment: 'center',
+              minHeight: '380px',
+              overlayOpacity: 0.35,
+              backgroundImage: 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?auto=format&fit=crop&w=1600&q=85'
+            }
+          },
+          {
+            id: 'sec-story-about',
+            type: 'rich_text',
+            title: 'Brand Story',
+            disabled: false,
+            settings: {
+              title: 'Our Heritage & Vision',
+              content: 'Founded to bring the richness of South Asian fashion to a worldwide audience, LAAM curates handcrafted collections from world-renowned fashion houses and avant-garde designers.',
+              layout: 'narrow'
+            }
+          }
+        ],
+        globalStyles: {
+          maxWidth: '1280px',
+          paddingY: '48px',
+          backgroundColor: '#FAF9F6'
+        }
+      },
+      publishedContent: {
+        schemaVersion: 1,
+        sections: [
+          {
+            id: 'sec-hero-about',
+            type: 'hero',
+            title: 'About Hero',
+            disabled: false,
+            settings: {
+              heading: 'About LAAM Luxury Fashion',
+              subheading: 'The premier global destination for authentic South Asian couture and pret wear.',
+              alignment: 'center',
+              minHeight: '380px',
+              overlayOpacity: 0.35,
+              backgroundImage: 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?auto=format&fit=crop&w=1600&q=85'
+            }
+          },
+          {
+            id: 'sec-story-about',
+            type: 'rich_text',
+            title: 'Brand Story',
+            disabled: false,
+            settings: {
+              title: 'Our Heritage & Vision',
+              content: 'Founded to bring the richness of South Asian fashion to a worldwide audience, LAAM curates handcrafted collections from world-renowned fashion houses and avant-garde designers.',
+              layout: 'narrow'
+            }
+          }
+        ],
+        globalStyles: {
+          maxWidth: '1280px',
+          paddingY: '48px',
+          backgroundColor: '#FAF9F6'
+        }
+      },
+      status: 'Published',
+      version: 1,
+      seoTitle: 'About Us | LAAM Luxury Fashion',
+      seoDescription: 'Discover authentic South Asian luxury fashion, hand-beaded bridal couture, and ready-to-ship pret at LAAM.',
+      createdBy: 'admin@laam.com',
+      createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+      updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+      publishedAt: new Date(Date.now() - 86400000 * 2).toISOString()
+    },
+    {
+      id: 'page-2',
+      title: 'Global Size Guide',
+      handle: 'size-guide',
+      type: 'page',
+      content: 'Detailed bust, waist, and hip sizing charts...',
+      builderContent: {
+        schemaVersion: 1,
+        sections: [
+          {
+            id: 'sec-banner-size',
+            type: 'banner',
+            title: 'Size Guide Banner',
+            disabled: false,
+            settings: {
+              heading: 'Global Size & Fit Guide',
+              subheading: 'Find your perfect silhouette across US, UK, and international luxury fashion standards.'
+            }
+          },
+          {
+            id: 'sec-size-table',
+            type: 'rich_text',
+            title: 'Sizing Measurements',
+            disabled: false,
+            settings: {
+              title: 'Standard Measurements (Inches)',
+              content: 'Bust, waist, and hip sizing charts for ready-to-ship and custom stitched ensembles.'
+            }
+          }
+        ]
+      },
+      publishedContent: {
+        schemaVersion: 1,
+        sections: [
+          {
+            id: 'sec-banner-size',
+            type: 'banner',
+            title: 'Size Guide Banner',
+            disabled: false,
+            settings: {
+              heading: 'Global Size & Fit Guide',
+              subheading: 'Find your perfect silhouette across US, UK, and international luxury fashion standards.'
+            }
+          },
+          {
+            id: 'sec-size-table',
+            type: 'rich_text',
+            title: 'Sizing Measurements',
+            disabled: false,
+            settings: {
+              title: 'Standard Measurements (Inches)',
+              content: 'Bust, waist, and hip sizing charts for ready-to-ship and custom stitched ensembles.'
+            }
+          }
+        ]
+      },
+      status: 'Published',
+      version: 1,
+      seoTitle: 'Global Size Guide | LAAM Luxury Fashion',
+      seoDescription: 'Accurate sizing charts and fit guidelines for luxury pret and couture.',
+      createdBy: 'admin@laam.com',
+      createdAt: new Date(Date.now() - 86400000 * 8).toISOString(),
+      updatedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
+      publishedAt: new Date(Date.now() - 86400000 * 1).toISOString()
+    }
+  ];
+
+  storePageVersions: any[] = [
+    {
+      id: 1,
+      pageId: 'page-1',
+      version: 1,
+      title: 'About Laam Luxury',
+      builderContent: {
+        schemaVersion: 1,
+        sections: [
+          {
+            id: 'sec-hero-about',
+            type: 'hero',
+            title: 'About Hero',
+            disabled: false,
+            settings: {
+              heading: 'About LAAM Luxury Fashion',
+              subheading: 'The premier global destination for authentic South Asian couture and pret wear.',
+              alignment: 'center',
+              minHeight: '380px',
+              overlayOpacity: 0.35,
+              backgroundImage: 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?auto=format&fit=crop&w=1600&q=85'
+            }
+          },
+          {
+            id: 'sec-story-about',
+            type: 'rich_text',
+            title: 'Brand Story',
+            disabled: false,
+            settings: {
+              title: 'Our Heritage & Vision',
+              content: 'Founded to bring the richness of South Asian fashion to a worldwide audience, LAAM curates handcrafted collections from world-renowned fashion houses and avant-garde designers.',
+              layout: 'narrow'
+            }
+          }
+        ]
+      },
+      content: 'The premier global destination for authentic South Asian fashion...',
+      status: 'Published',
+      changeSummary: 'Initial publication',
+      createdBy: 'admin@laam.com',
+      createdAt: new Date(Date.now() - 86400000 * 2).toISOString()
+    },
+    {
+      id: 2,
+      pageId: 'page-2',
+      version: 1,
+      title: 'Global Size Guide',
+      builderContent: {
+        schemaVersion: 1,
+        sections: [
+          {
+            id: 'sec-banner-size',
+            type: 'banner',
+            title: 'Size Guide Banner',
+            disabled: false,
+            settings: {
+              heading: 'Global Size & Fit Guide',
+              subheading: 'Find your perfect silhouette across US, UK, and international luxury fashion standards.'
+            }
+          }
+        ]
+      },
+      content: 'Detailed bust, waist, and hip sizing charts...',
+      status: 'Published',
+      changeSummary: 'Initial publication',
+      createdBy: 'admin@laam.com',
+      createdAt: new Date(Date.now() - 86400000 * 1).toISOString()
+    }
+  ];
+
+  schemas = [
+    {
+      id: 'sch-1',
+      referenceType: 'global',
+      referenceId: 'global',
+      name: 'Organization & Brand Schema',
+      schemaType: 'Organization',
+      jsonContent: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "LAAM Luxury Fashion",
+        "url": "https://laam.pk",
+        "logo": "https://images.unsplash.com/photo-1566737236500-c8ac43014a67",
+        "sameAs": [
+          "https://www.facebook.com/laamofficial",
+          "https://www.instagram.com/laamofficial"
+        ]
+      }, null, 2),
+      isEnabled: true,
+      createdAt: new Date().toISOString()
+    }
   ];
 }
 
@@ -171,6 +423,184 @@ export async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS admin_collections (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        handle VARCHAR(255),
+        type VARCHAR(50) DEFAULT 'manual',
+        rule VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'Active',
+        image TEXT,
+        seo_title VARCHAR(255),
+        seo_description TEXT,
+        assigned_products TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS admin_media (
+        id VARCHAR(64) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        url TEXT NOT NULL,
+        alt_text VARCHAR(255),
+        file_size INT,
+        file_type VARCHAR(100),
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS admin_schemas (
+        id VARCHAR(64) PRIMARY KEY,
+        reference_type VARCHAR(50) NOT NULL,
+        reference_id VARCHAR(100) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        schema_type VARCHAR(100) NOT NULL,
+        json_content TEXT NOT NULL,
+        is_enabled TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS inventory_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        product_id VARCHAR(64),
+        product_title VARCHAR(255),
+        sku VARCHAR(100),
+        variant VARCHAR(50),
+        previous_stock INT,
+        new_stock INT,
+        adjustment INT,
+        reason VARCHAR(100),
+        user_email VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Store Pages Table with Page Builder structured content
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS store_pages (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        handle VARCHAR(255) NOT NULL,
+        type VARCHAR(50) DEFAULT 'page',
+        content TEXT,
+        builder_content LONGTEXT,
+        published_content LONGTEXT,
+        status VARCHAR(50) DEFAULT 'Draft',
+        version INT DEFAULT 1,
+        seo_title VARCHAR(255),
+        seo_description TEXT,
+        created_by VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        published_at TIMESTAMP NULL DEFAULT NULL,
+        INDEX idx_store_pages_handle (handle),
+        INDEX idx_store_pages_status (status)
+      );
+    `);
+
+    // Safe migration: check if columns exist in store_pages and add if missing
+    try {
+      const [cols]: any = await connection.query(`SHOW COLUMNS FROM store_pages;`);
+      const existingCols = cols.map((c: any) => c.Field);
+      if (!existingCols.includes('builder_content')) {
+        await connection.query(`ALTER TABLE store_pages ADD COLUMN builder_content LONGTEXT NULL AFTER content;`);
+      }
+      if (!existingCols.includes('published_content')) {
+        await connection.query(`ALTER TABLE store_pages ADD COLUMN published_content LONGTEXT NULL AFTER builder_content;`);
+      }
+      if (!existingCols.includes('version')) {
+        await connection.query(`ALTER TABLE store_pages ADD COLUMN version INT DEFAULT 1 AFTER status;`);
+      }
+      if (!existingCols.includes('seo_title')) {
+        await connection.query(`ALTER TABLE store_pages ADD COLUMN seo_title VARCHAR(255) NULL AFTER version;`);
+      }
+      if (!existingCols.includes('seo_description')) {
+        await connection.query(`ALTER TABLE store_pages ADD COLUMN seo_description TEXT NULL AFTER seo_title;`);
+      }
+      if (!existingCols.includes('created_by')) {
+        await connection.query(`ALTER TABLE store_pages ADD COLUMN created_by VARCHAR(255) NULL AFTER seo_description;`);
+      }
+      if (!existingCols.includes('created_at')) {
+        await connection.query(`ALTER TABLE store_pages ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`);
+      }
+      if (!existingCols.includes('updated_at')) {
+        await connection.query(`ALTER TABLE store_pages ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;`);
+      }
+      if (!existingCols.includes('published_at')) {
+        await connection.query(`ALTER TABLE store_pages ADD COLUMN published_at TIMESTAMP NULL DEFAULT NULL;`);
+      }
+    } catch (migErr: any) {
+      console.warn('Note on store_pages column check:', migErr.message);
+    }
+
+    // Page Versions History Table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS store_page_versions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        page_id VARCHAR(64) NOT NULL,
+        version INT NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        builder_content LONGTEXT,
+        content TEXT,
+        status VARCHAR(50) DEFAULT 'Draft',
+        change_summary VARCHAR(255) DEFAULT 'Updated page builder content',
+        created_by VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_page_versions_page (page_id),
+        UNIQUE KEY uk_page_version (page_id, version)
+      );
+    `);
+
+    // Seed default store pages in MySQL if empty
+    try {
+      const [pageRows]: any = await connection.query('SELECT COUNT(*) as count FROM store_pages;');
+      if (pageRows[0].count === 0) {
+        for (const p of memoryStore.storePages) {
+          await connection.query(
+            `INSERT INTO store_pages (id, title, handle, type, content, builder_content, published_content, status, version, seo_title, seo_description, created_by, published_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+            [
+              p.id,
+              p.title,
+              p.handle,
+              p.type,
+              p.content,
+              JSON.stringify(p.builderContent),
+              JSON.stringify(p.publishedContent),
+              p.status,
+              p.version,
+              p.seoTitle,
+              p.seoDescription,
+              p.createdBy
+            ]
+          );
+
+          await connection.query(
+            `INSERT INTO store_page_versions (page_id, version, title, builder_content, content, status, change_summary, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              p.id,
+              p.version,
+              p.title,
+              JSON.stringify(p.builderContent),
+              p.content,
+              p.status,
+              'Initial publication',
+              p.createdBy
+            ]
+          );
+        }
+      }
+    } catch (seedErr: any) {
+      console.warn('Note on store_pages seeding:', seedErr.message);
+    }
 
     // Seed default admin users
     const [rows]: any = await connection.query('SELECT COUNT(*) as count FROM admin_users;');

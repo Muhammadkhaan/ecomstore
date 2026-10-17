@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ChevronRight,
   Heart,
@@ -43,7 +43,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({
   onAddToCart,
   onNavigate,
 }) => {
-  const product = PRODUCTS.find((p) => p.id === productId) || PRODUCTS[0];
+  const [product, setProduct] = useState<Product>(() => PRODUCTS.find((p) => p.id === productId) || PRODUCTS[0]);
 
   const [activeImage, setActiveImage] = useState(product.image);
   const [activeMediaType, setActiveMediaType] = useState<'image' | 'video'>('image');
@@ -58,6 +58,27 @@ export const ProductPage: React.FC<ProductPageProps> = ({
     length: 44,
     unit: 'inches',
   });
+
+  useEffect(() => {
+    const local = PRODUCTS.find((p) => p.id === productId);
+    if (local) {
+      setProduct(local);
+      setActiveImage(local.image);
+      setSelectedSize(local.sizes[0] || 'M');
+    }
+    fetch(`/api/admin/store/products/${productId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.product) {
+          setProduct(data.product);
+          setActiveImage(data.product.image);
+          if (data.product.sizes && data.product.sizes.length > 0) {
+            setSelectedSize(data.product.sizes[0]);
+          }
+        }
+      })
+      .catch(err => console.error(err));
+  }, [productId]);
 
   const [activeTab, setActiveTab] = useState<'fabric' | 'shipping' | 'care'>('fabric');
   const [addedSuccess, setAddedSuccess] = useState(false);

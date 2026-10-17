@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ChevronRight,
   SlidersHorizontal,
@@ -6,7 +6,9 @@ import {
   Columns2,
   X,
   Check,
-  RotateCcw
+  RotateCcw,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { Product, ProductCategory, CurrencyCode } from '../types.ts';
 import { PRODUCTS, CURRENCIES } from '../data/products.ts';
@@ -14,6 +16,7 @@ import { ProductCard } from '../components/ProductCard.tsx';
 
 interface CollectionPageProps {
   initialCategory?: ProductCategory;
+  collectionHandle?: string;
   currency: CurrencyCode;
   wishlist: string[];
   onToggleWishlist: (id: string) => void;
@@ -24,6 +27,7 @@ interface CollectionPageProps {
 
 export const CollectionPage: React.FC<CollectionPageProps> = ({
   initialCategory = 'all',
+  collectionHandle,
   currency,
   wishlist,
   onToggleWishlist,
@@ -32,6 +36,9 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
   onNavigate,
 }) => {
   const [category, setCategory] = useState<ProductCategory>(initialCategory);
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
+  const [liveCollections, setLiveCollections] = useState<any[]>([]);
+  const [liveProducts, setLiveProducts] = useState<Product[]>(PRODUCTS);
   const [selectedDesigner, setSelectedDesigner] = useState<string>('all');
   const [selectedFabric, setSelectedFabric] = useState<string>('all');
   const [readyToShipOnly, setReadyToShipOnly] = useState<boolean>(initialCategory === 'ready-to-ship');
@@ -40,7 +47,32 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
   const [columnDensity, setColumnDensity] = useState<2 | 4>(4);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
-  const designers = useMemo(() => Array.from(new Set(PRODUCTS.map((p) => p.designer))), []);
+  // Fetch live store collections & products
+  useEffect(() => {
+    fetch('/api/admin/store/collections')
+      .then(res => res.json())
+      .then(data => {
+        if (data.collections) {
+          setLiveCollections(data.collections);
+          if (collectionHandle) {
+            const matched = data.collections.find((c: any) => c.handle === collectionHandle || c.id === collectionHandle);
+            if (matched) setActiveCollectionId(matched.id);
+          }
+        }
+      })
+      .catch(err => console.error(err));
+
+    fetch('/api/admin/store/products')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data.products) && data.products.length > 0) {
+          setLiveProducts(data.products);
+        }
+      })
+      .catch(err => console.error(err));
+  }, [collectionHandle]);
+
+  const designers = useMemo(() => Array.from(new Set(liveProducts.map((p) => p.designer))), [liveProducts]);
   const fabrics = [
     'Pure Raw Silk',
     'Micro Velvet',
@@ -51,13 +83,34 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
     'Swiss Voile Lawn',
   ];
 
+  // Active selected collection object
+  const currentCollection = useMemo(() => {
+    if (!activeCollectionId) return null;
+    return liveCollections.find(c => c.id === activeCollectionId);
+  }, [activeCollectionId, liveCollections]);
+
   const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter((item) => {
-      // Category
-      if (category === 'ready-to-ship' && !item.readyToShip) return false;
-      if (category !== 'all' && category !== 'ready-to-ship' && item.category !== category) {
-        return false;
+    return liveProducts.filter((item) => {
+      // If a specific collection is selected
+      if (currentCollection) {
+        if (currentCollection.type === 'manual') {
+          const assignedIds = Array.isArray(currentCollection.assignedProducts) ? currentCollection.assignedProducts : [];
+          if (!assignedIds.includes(item.id)) return false;
+        } else if (currentCollection.type === 'rule' && currentCollection.rule) {
+          const ruleLower = currentCollection.rule.toLowerCase();
+          if (ruleLower.includes('category =')) {
+            const cat = ruleLower.split('=')[1]?.trim();
+            if (cat && item.category !== cat) return false;
+          }
+        }
+      } else {
+        // Standard category filter
+        if (category === 'ready-to-ship' && !item.readyToShip) return false;
+        if (category !== 'all' && category !== 'ready-to-ship' && item.category !== category) {
+          return false;
+        }
       }
+
       // Designer
       if (selectedDesigner !== 'all' && item.designer !== selectedDesigner) return false;
       // Fabric
@@ -76,10 +129,11 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
       if (sortBy === 'rating') return b.rating - a.rating;
       return 0;
     });
-  }, [category, selectedDesigner, selectedFabric, readyToShipOnly, maxPrice, sortBy]);
+  }, [liveProducts, currentCollection, category, selectedDesigner, selectedFabric, readyToShipOnly, maxPrice, sortBy]);
 
   const resetFilters = () => {
     setCategory('all');
+    setActiveCollectionId(null);
     setSelectedDesigner('all');
     setSelectedFabric('all');
     setReadyToShipOnly(false);
@@ -120,6 +174,9 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
     },
   };
 
+  const pageTitle = currentCollection ? currentCollection.title : (categoryTitles[category]?.title || 'Collections');
+  const pageDesc = currentCollection ? (currentCollection.description || 'Exclusive curated collection from Laam official ateliers.') : (categoryTitles[category]?.desc || '');
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
       {/* Breadcrumbs */}
@@ -128,18 +185,27 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
           Home
         </button>
         <ChevronRight className="w-3.5 h-3.5 text-[#D6D6D6]" />
+        <button onClick={() => { setActiveCollectionId(null); setCategory('all'); }} className="hover:text-[#141414]">
+          Collections
+        </button>
+        <ChevronRight className="w-3.5 h-3.5 text-[#D6D6D6]" />
         <span className="text-[#141414] font-medium capitalize">
-          {categoryTitles[category]?.title || 'Collections'}
+          {pageTitle}
         </span>
       </nav>
 
       {/* Category Editorial Banner */}
-      <div className="bg-[#FAF9F6] border border-[#E5E5E5] rounded-2xl p-6 sm:p-8 space-y-2">
+      <div className="bg-[#FAF9F6] border border-[#E5E5E5] rounded-2xl p-6 sm:p-8 space-y-2 relative overflow-hidden">
+        {currentCollection?.image && (
+          <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-20 pointer-events-none hidden md:block">
+            <img src={currentCollection.image} alt={pageTitle} className="w-full h-full object-cover" />
+          </div>
+        )}
         <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#141414]">
-          {categoryTitles[category]?.title}
+          {pageTitle}
         </h1>
         <p className="text-xs sm:text-sm text-[#525252] max-w-2xl leading-relaxed">
-          {categoryTitles[category]?.desc}
+          {pageDesc}
         </p>
       </div>
 
@@ -161,22 +227,56 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
             </button>
           </div>
 
-          {/* Category Filter */}
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-[#141414]">Collection</h4>
+          {/* Curated Store Collections */}
+          {liveCollections.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-[#141414] flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-[#E04F16]" />
+                <span>Curated Collections</span>
+              </h4>
+              <div className="space-y-1 text-xs">
+                {liveCollections.map((col) => {
+                  const isSelected = activeCollectionId === col.id;
+                  return (
+                    <button
+                      key={col.id}
+                      onClick={() => {
+                        setActiveCollectionId(col.id);
+                      }}
+                      className={`w-full text-left py-1.5 px-2 rounded-md transition-colors flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-[#141414] text-white font-semibold'
+                          : 'text-[#525252] hover:bg-[#FAF9F6]'
+                      }`}
+                    >
+                      <span className="truncate">{col.title}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Standard Categories Filter */}
+          <div className="space-y-2 pt-3 border-t border-[#E5E5E5]">
+            <h4 className="text-xs font-semibold text-[#141414]">Standard Department</h4>
             <div className="space-y-1 text-xs">
               {(['all', 'pret', 'festive', 'bridal', 'ready-to-ship'] as ProductCategory[]).map((cat) => (
                 <button
                   key={cat}
-                  onClick={() => setCategory(cat)}
+                  onClick={() => {
+                    setActiveCollectionId(null);
+                    setCategory(cat);
+                  }}
                   className={`w-full text-left py-1.5 px-2 rounded-md transition-colors flex items-center justify-between ${
-                    category === cat
+                    !activeCollectionId && category === cat
                       ? 'bg-[#141414] text-white font-semibold'
                       : 'text-[#525252] hover:bg-[#FAF9F6]'
                   }`}
                 >
                   <span className="capitalize">{cat.replace('-', ' ')}</span>
-                  {category === cat && <Check className="w-3.5 h-3.5 text-white" />}
+                  {!activeCollectionId && category === cat && <Check className="w-3.5 h-3.5 text-white" />}
                 </button>
               ))}
             </div>
@@ -299,53 +399,21 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
             </div>
           </div>
 
-          {/* Active Filter Chips */}
-          {(category !== 'all' || selectedDesigner !== 'all' || selectedFabric !== 'all' || readyToShipOnly) && (
-            <div className="flex flex-wrap gap-2 text-xs">
-              {category !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white border border-[#D6D6D6] text-[#141414]">
-                  Category: {category}
-                  <button onClick={() => setCategory('all')}>
-                    <X className="w-3 h-3 text-[#737373] hover:text-[#141414]" />
-                  </button>
-                </span>
-              )}
-              {selectedDesigner !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white border border-[#D6D6D6] text-[#141414]">
-                  Designer: {selectedDesigner}
-                  <button onClick={() => setSelectedDesigner('all')}>
-                    <X className="w-3 h-3 text-[#737373] hover:text-[#141414]" />
-                  </button>
-                </span>
-              )}
-              {selectedFabric !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white border border-[#D6D6D6] text-[#141414]">
-                  Fabric: {selectedFabric}
-                  <button onClick={() => setSelectedFabric('all')}>
-                    <X className="w-3 h-3 text-[#737373] hover:text-[#141414]" />
-                  </button>
-                </span>
-              )}
-              {readyToShipOnly && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#D3F8DF] text-[#087443] border border-[#73E2A3]">
-                  Ready to Ship
-                  <button onClick={() => setReadyToShipOnly(false)}>
-                    <X className="w-3 h-3 text-[#087443]" />
-                  </button>
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Products Grid */}
+          {/* Product Grid */}
           {filteredProducts.length === 0 ? (
-            <div className="py-20 text-center space-y-4 bg-[#FAF9F6] rounded-2xl border border-[#E5E5E5]">
-              <p className="text-sm font-semibold text-[#141414]">
-                No outfits found matching these specific filters.
-              </p>
+            <div className="p-16 text-center space-y-4 bg-white rounded-2xl border border-[#E5E5E5]">
+              <div className="w-12 h-12 bg-[#FAF9F6] text-[#737373] rounded-full mx-auto flex items-center justify-center">
+                <SlidersHorizontal className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-serif font-bold text-base text-[#141414]">No Outfits Match Criteria</h3>
+                <p className="text-xs text-[#737373] max-w-sm mx-auto">
+                  Try adjusting your price range, fabric selection, or choosing another collection.
+                </p>
+              </div>
               <button
                 onClick={resetFilters}
-                className="px-4 py-2 bg-[#141414] text-white text-xs font-semibold rounded-lg"
+                className="px-5 py-2.5 bg-[#141414] text-white text-xs font-semibold rounded-full hover:bg-[#2b2b2b] transition-colors"
               >
                 Reset All Filters
               </button>
@@ -353,20 +421,20 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
           ) : (
             <div
               className={`grid gap-6 ${
-                columnDensity === 2
-                  ? 'grid-cols-1 sm:grid-cols-2'
-                  : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
+                columnDensity === 4
+                  ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                  : 'grid-cols-1 sm:grid-cols-2'
               }`}
             >
-              {filteredProducts.map((p) => (
+              {filteredProducts.map((product) => (
                 <ProductCard
-                  key={p.id}
-                  product={p}
+                  key={product.id}
+                  product={product}
                   currency={currency}
-                  isWishlisted={wishlist.includes(p.id)}
+                  isWishlisted={wishlist.includes(product.id)}
                   onToggleWishlist={onToggleWishlist}
-                  onQuickView={(prod) => onNavigate(`/product/${prod.id}`)}
-                  onAddToCart={(prod, sz) => onAddToCart(prod, sz)}
+                  onQuickView={onQuickView}
+                  onAddToCart={onAddToCart}
                 />
               ))}
             </div>

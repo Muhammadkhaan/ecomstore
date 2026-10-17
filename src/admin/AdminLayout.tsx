@@ -16,7 +16,8 @@ import {
   LogOut,
   ExternalLink,
   ChevronRight,
-  Shield
+  Shield,
+  Code
 } from 'lucide-react';
 
 import { AdminDashboardOverview } from './pages/AdminDashboardOverview.tsx';
@@ -33,7 +34,10 @@ import { AdminNavigationPage } from './pages/AdminNavigationPage.tsx';
 import { AdminMediaPage } from './pages/AdminMediaPage.tsx';
 import { AdminSettingsPage } from './pages/AdminSettingsPage.tsx';
 import { AdminSeoPage } from './pages/AdminSeoPage.tsx';
+import { AdminSchemaMarkupPage } from './pages/AdminSchemaMarkupPage.tsx';
 import { AdminActivityLogsPage } from './pages/AdminActivityLogsPage.tsx';
+import { AdminProductFormPage } from './pages/AdminProductFormPage.tsx';
+import { AdminPageBuilderPage } from './pages/AdminPageBuilderPage.tsx';
 
 interface AdminLayoutProps {
   token: string;
@@ -56,6 +60,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ token, adminUser, onLo
     { label: 'Discounts', path: '/admin/discounts', icon: Tag },
     { label: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
     { label: 'SEO & Meta', path: '/admin/seo', icon: FileText },
+    { label: 'SEO → Schema Markup', path: '/admin/seo/schemas', icon: Code },
     { label: 'Online Store', path: '/admin/online-store', icon: Globe },
     { label: 'Pages', path: '/admin/pages', icon: FileText },
     { label: 'Navigation', path: '/admin/navigation', icon: MenuIcon },
@@ -65,11 +70,19 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ token, adminUser, onLo
   ];
 
   const renderCurrentPage = () => {
+    if (currentPath === '/admin/products/new') {
+      return <AdminProductFormPage token={token} onNavigate={setCurrentPath} />;
+    }
+    if (currentPath.startsWith('/admin/products/edit/')) {
+      const productId = currentPath.replace('/admin/products/edit/', '');
+      return <AdminProductFormPage token={token} productId={productId} onNavigate={setCurrentPath} />;
+    }
+
     switch (currentPath) {
       case '/admin':
         return <AdminDashboardOverview token={token} onNavigate={setCurrentPath} />;
       case '/admin/products':
-        return <AdminProductsPage token={token} />;
+        return <AdminProductsPage token={token} onNavigate={setCurrentPath} />;
       case '/admin/collections':
         return <AdminCollectionsPage token={token} />;
       case '/admin/inventory':
@@ -83,11 +96,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ token, adminUser, onLo
       case '/admin/analytics':
         return <AdminAnalyticsPage token={token} />;
       case '/admin/seo':
-        return <AdminSeoPage token={token} />;
+        return <AdminSeoPage token={token} onNavigate={setCurrentPath} />;
+      case '/admin/seo/schemas':
+        return <AdminSchemaMarkupPage token={token} onNavigate={setCurrentPath} />;
       case '/admin/online-store':
         return <AdminOnlineStorePage token={token} />;
       case '/admin/pages':
-        return <AdminPagesPage token={token} />;
+        return <AdminPagesPage token={token} onNavigate={setCurrentPath} />;
       case '/admin/navigation':
         return <AdminNavigationPage token={token} />;
       case '/admin/media':
@@ -100,6 +115,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ token, adminUser, onLo
         return <AdminDashboardOverview token={token} onNavigate={setCurrentPath} />;
     }
   };
+
+  if (currentPath.startsWith('/admin/pages/builder/')) {
+    const pageId = currentPath.replace('/admin/pages/builder/', '');
+    return <AdminPageBuilderPage token={token} pageId={pageId} onNavigate={setCurrentPath} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#F4F4F4] text-[#141414] font-sans flex antialiased">

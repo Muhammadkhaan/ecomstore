@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Globe, Search, Code, Check, FileText } from 'lucide-react';
+import { Globe, Search, Code, Check, FileText, ArrowRight } from 'lucide-react';
+import { SchemaManagerTab } from '../components/SchemaManagerTab.tsx';
 
-export const AdminSeoPage: React.FC<{ token: string }> = ({ token }) => {
+export const AdminSeoPage: React.FC<{ token: string; onNavigate?: (path: string) => void }> = ({ token, onNavigate }) => {
   const [metaTitle, setMetaTitle] = useState('Laam Luxury Fashion — Designer Pret & Festive Formals');
   const [metaDescription, setMetaDescription] = useState('Discover authentic South Asian designer fashion, luxury pret, festive formals, and bridal couture with global express delivery.');
   const [canonicalUrl, setCanonicalUrl] = useState('https://laam.com');
@@ -19,8 +20,8 @@ export const AdminSeoPage: React.FC<{ token: string }> = ({ token }) => {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-xl font-bold font-serif text-[#141414]">Search Engine Optimization (SEO)</h1>
-        <p className="text-xs text-[#737373]">Manage global meta tags, canonical URLs, URL redirects, structured schema, and sitemaps.</p>
+        <h1 className="text-xl font-bold font-serif text-[#141414]">Search Engine Optimization (SEO) & Structured Data</h1>
+        <p className="text-xs text-[#737373]">Manage global meta tags, canonical URLs, URL redirects, structured JSON-LD schemas, and sitemaps.</p>
       </div>
 
       <form onSubmit={handleSaveSeo} className="bg-white p-6 rounded-2xl border border-[#E5E5E5] space-y-4 text-xs shadow-sm">
@@ -120,6 +121,27 @@ export const AdminSeoPage: React.FC<{ token: string }> = ({ token }) => {
           </button>
         </div>
       </form>
+
+      {/* Global Schema Markup Section */}
+      <div className="bg-white p-6 rounded-2xl border border-[#E5E5E5] shadow-sm space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-[#E5E5E5]">
+          <div>
+            <h3 className="font-bold text-sm text-[#141414]">Global Store Schema Markup</h3>
+            <p className="text-xs text-[#737373]">Configure JSON-LD schemas applied site-wide</p>
+          </div>
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate('/admin/seo/schemas')}
+              className="px-3.5 py-1.5 bg-[#FAF9F6] border border-[#E5E5E5] text-[#141414] hover:bg-[#141414] hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            >
+              <span>Open Central Schema Manager</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        <SchemaManagerTab token={token} referenceType="global" referenceId="global" />
+      </div>
     </div>
   );
 };

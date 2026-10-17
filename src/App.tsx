@@ -17,10 +17,12 @@ import { ProductPage } from './pages/ProductPage.tsx';
 import { CartPage } from './pages/CartPage.tsx';
 import { CheckoutPage } from './pages/CheckoutPage.tsx';
 import { DesignersPage } from './pages/DesignersPage.tsx';
+import { CustomPage } from './pages/CustomPage.tsx';
 
 import { Product, CurrencyCode, CartItem, OrderDetails, ProductCategory } from './types.ts';
 import { PRODUCTS, CURRENCIES } from './data/products.ts';
 import { Sparkles, Bot, Ruler } from 'lucide-react';
+import { StorefrontSchemas } from './components/StorefrontSchemas.tsx';
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState<string>('/');
@@ -162,14 +164,19 @@ export default function App() {
 
     if (currentPath === '/collections' || currentPath.startsWith('/collections/')) {
       let initialCat: ProductCategory = 'all';
+      let handle = '';
       if (currentPath.includes('/pret')) initialCat = 'pret';
       else if (currentPath.includes('/festive')) initialCat = 'festive';
       else if (currentPath.includes('/bridal')) initialCat = 'bridal';
       else if (currentPath.includes('/ready-to-ship')) initialCat = 'ready-to-ship';
+      else if (currentPath.startsWith('/collections/')) {
+        handle = currentPath.replace('/collections/', '');
+      }
 
       return (
         <CollectionPage
           initialCategory={initialCat}
+          collectionHandle={handle}
           currency={currency}
           wishlist={wishlist}
           onToggleWishlist={handleToggleWishlist}
@@ -182,10 +189,9 @@ export default function App() {
 
     if (currentPath.startsWith('/products/')) {
       const productId = currentPath.replace('/products/', '');
-      const product = PRODUCTS.find((p) => p.id === productId) || PRODUCTS[0];
       return (
         <ProductPage
-          productId={product.id}
+          productId={productId}
           currency={currency}
           wishlist={wishlist}
           onToggleWishlist={handleToggleWishlist}
@@ -238,6 +244,17 @@ export default function App() {
       );
     }
 
+    if (currentPath.startsWith('/pages/')) {
+      const pageHandle = currentPath.replace('/pages/', '');
+      return (
+        <CustomPage
+          pageHandle={pageHandle}
+          onNavigate={setCurrentPath}
+          adminToken={adminToken}
+        />
+      );
+    }
+
     return (
       <HomePage
         currency={currency}
@@ -283,6 +300,22 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#141414] font-sans antialiased selection:bg-[#E04F16]/20 selection:text-[#E04F16]">
+      {(() => {
+        let schemaRefType: 'global' | 'product' | 'collection' | 'page' = 'global';
+        let schemaRefId = 'global';
+        if (currentPath.startsWith('/products/')) {
+          schemaRefType = 'product';
+          schemaRefId = currentPath.replace('/products/', '');
+        } else if (currentPath.startsWith('/collections')) {
+          schemaRefType = 'collection';
+          schemaRefId = currentPath.replace('/collections/', '') || 'all';
+        } else if (currentPath.startsWith('/pages/')) {
+          schemaRefType = 'page';
+          schemaRefId = currentPath.replace('/pages/', '');
+        }
+        return <StorefrontSchemas referenceType={schemaRefType} referenceId={schemaRefId} />;
+      })()}
+
       {/* Top Announcement Bar */}
       <TopBanner />
 
