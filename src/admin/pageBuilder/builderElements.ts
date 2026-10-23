@@ -20,6 +20,7 @@ import {
   HelpCircle,
   MessageSquareQuote,
   Mail,
+  ShieldCheck,
   Code
 } from 'lucide-react';
 import { PageBuilderSection, PageBuilderSectionType } from '../../types/pageBuilder.ts';
@@ -388,6 +389,27 @@ export const BUILDER_ELEMENTS: ElementDefinition[] = [
       subheading: 'Receive private invitations to couture launches and 10% off your first luxury order.',
       buttonText: 'Subscribe',
       placeholder: 'Enter your email address'
+    }
+  },
+  {
+    type: 'trust_signals',
+    label: 'Trust Signals',
+    category: 'ecommerce',
+    icon: ShieldCheck,
+    description: '4-item luxury confidence bar with guarantees & shipping promises.',
+    defaultSettings: {
+      item1Title: '100% Original Designer Wear',
+      item1Subtitle: 'Directly sourced from verified Pakistani ateliers',
+      item2Title: 'Express Global Shipping',
+      item2Subtitle: 'Doorstep DHL delivery across 150+ countries',
+      item3Title: 'Secure Checkout Guaranteed',
+      item3Subtitle: 'End-to-end encrypted international transactions',
+      item4Title: 'Direct From Designers',
+      item4Subtitle: 'Authentic pret, luxury couture & bridal wear',
+      backgroundColor: '#FAF9F6',
+      textColor: '#141414',
+      accentColor: '#087443',
+      borderColor: '#E5E5E5'
     }
   }
 ];

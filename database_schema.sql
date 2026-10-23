@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS `admin_media` (
   `alt_text` varchar(255) DEFAULT NULL,
   `file_size` int(11) DEFAULT NULL,
   `file_type` varchar(100) DEFAULT NULL,
+  `dimensions` varchar(50) DEFAULT NULL,
   `uploaded_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -1,4 +1,4 @@
-import { Product, CurrencyCode, CurrencyConfig } from '../types.ts';
+import type { Product, CurrencyCode, CurrencyConfig } from '../types.ts';
 
 export const CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
   USD: {

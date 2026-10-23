@@ -873,8 +873,8 @@ export const AdminProductFormPage: React.FC<AdminProductFormPageProps> = ({ toke
         token={token}
         isOpen={isMediaPickerOpen}
         onClose={() => setIsMediaPickerOpen(false)}
-        onSelect={(url) => {
-          setImages([...images, { url, alt: title || 'Product Image' }]);
+        onSelect={(url, altText) => {
+          setImages([...images, { url, alt: altText || title || 'Product Image' }]);
         }}
       />
     </div>

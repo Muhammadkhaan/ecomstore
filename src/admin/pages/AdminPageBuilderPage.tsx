@@ -10,7 +10,8 @@ import {
   duplicateSectionInstance,
   duplicateBlockInstance
 } from '../pageBuilder/builderElements.ts';
-import { AlertCircle, ArrowLeft } from 'lucide-react';
+import { AlertCircle, ArrowLeft, X, ExternalLink, Monitor, Tablet, Smartphone, Sparkles, Eye, CheckCircle2 } from 'lucide-react';
+import { CustomPage } from '../../pages/CustomPage.tsx';
 
 interface AdminPageBuilderPageProps {
   token: string;
@@ -37,6 +38,10 @@ export const AdminPageBuilderPage: React.FC<AdminPageBuilderPageProps> = ({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isLeftOpen, setIsLeftOpen] = useState(true);
   const [isRightOpen, setIsRightOpen] = useState(true);
+
+  // Storefront Real Preview Modal state
+  const [showStorefrontPreview, setShowStorefrontPreview] = useState(false);
+  const [storefrontDevice, setStorefrontDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Undo / Redo history stacks
   const [undoStack, setUndoStack] = useState<PageBuilderSection[][]>([]);
@@ -395,15 +400,26 @@ export const AdminPageBuilderPage: React.FC<AdminPageBuilderPageProps> = ({
     onNavigate('/admin/pages');
   };
 
-  // Save changes to backend
-  const handleSave = async (actionOverride?: 'draft' | 'publish') => {
+  // Save / Publish / Unpublish changes to backend
+  const handleSave = async (actionOverride?: 'draft' | 'publish' | 'unpublish') => {
     if (!page) return;
+
+    if (actionOverride === 'unpublish') {
+      if (
+        !confirm(
+          'Are you sure you want to unpublish this page? It will be immediately removed from public access on the live storefront and preserved as Draft.'
+        )
+      ) {
+        return;
+      }
+    }
+
     setIsSaving(true);
 
     const finalStatus =
       actionOverride === 'publish'
         ? 'Published'
-        : actionOverride === 'draft'
+        : actionOverride === 'unpublish'
         ? 'Draft'
         : page.status;
 
@@ -427,8 +443,12 @@ export const AdminPageBuilderPage: React.FC<AdminPageBuilderPageProps> = ({
       expectedVersion: page.version,
       changeSummary:
         actionOverride === 'publish'
-          ? `Published v${page.version + 1} with ${sections.length} sections from Visual Builder`
-          : `Saved draft v${page.version + 1} with ${sections.length} sections from Visual Builder`
+          ? (page.status === 'Published'
+              ? `Updated published live page (v${page.version + 1})`
+              : `Published live page (v${page.version + 1})`)
+          : actionOverride === 'unpublish'
+          ? `Unpublished page (v${page.version + 1}, reverted to Draft)`
+          : `Saved draft v${page.version + 1} with ${sections.length} sections`
     };
 
     try {
@@ -448,11 +468,18 @@ export const AdminPageBuilderPage: React.FC<AdminPageBuilderPageProps> = ({
 
       setPage(data.page);
       setHasUnsavedChanges(false);
-      showNotification(
-        actionOverride === 'publish'
-          ? `Page published live to storefront! (v${data.page.version})`
-          : `Page changes saved successfully! (v${data.page.version})`
-      );
+
+      if (actionOverride === 'publish') {
+        showNotification(
+          page.status === 'Published'
+            ? `Live page successfully updated with latest changes! (v${data.page.version})`
+            : `Page published live to storefront! (v${data.page.version})`
+        );
+      } else if (actionOverride === 'unpublish') {
+        showNotification('Page unpublished. Reverted to Draft mode.');
+      } else {
+        showNotification(`Draft changes saved successfully! (v${data.page.version})`);
+      }
     } catch (err: any) {
       showNotification(err.message, 'error');
     } finally {
@@ -498,6 +525,7 @@ export const AdminPageBuilderPage: React.FC<AdminPageBuilderPageProps> = ({
       <BuilderToolbar
         pageTitle={page.title}
         pageStatus={page.status}
+        pageHandle={page.handle}
         hasUnsavedChanges={hasUnsavedChanges}
         isSaving={isSaving}
         canUndo={undoStack.length > 0}
@@ -510,6 +538,7 @@ export const AdminPageBuilderPage: React.FC<AdminPageBuilderPageProps> = ({
         onRedo={handleRedo}
         onViewportChange={setViewportMode}
         onTogglePreview={() => setIsPreviewMode(!isPreviewMode)}
+        onOpenStorefrontPreview={() => setShowStorefrontPreview(true)}
         onSave={handleSave}
       />
 
@@ -580,6 +609,8 @@ export const AdminPageBuilderPage: React.FC<AdminPageBuilderPageProps> = ({
             page={page}
             selectedElement={selectedElement}
             selectedBlockId={selectedBlockId}
+            viewportMode={viewportMode}
+            onViewportChange={(mode) => setViewportMode(mode)}
             isOpen={isRightOpen}
             onToggleOpen={() => setIsRightOpen(!isRightOpen)}
             onUpdatePageMeta={handleUpdatePageMeta}
@@ -595,6 +626,128 @@ export const AdminPageBuilderPage: React.FC<AdminPageBuilderPageProps> = ({
           />
         )}
       </div>
+
+      {/* 3. Real Storefront Preview Modal with responsive device framing */}
+      {showStorefrontPreview && page && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col animate-fade-in">
+          {/* Preview Modal Header */}
+          <div className="h-14 bg-[#141414] text-white border-b border-[#262626] px-5 flex items-center justify-between shrink-0 select-none">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+                <Eye className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-xs tracking-wide">Storefront Live Preview</h3>
+                  <span
+                    className={`px-2 py-0.2 rounded-full text-[10px] uppercase font-bold tracking-wider ${
+                      page.status === 'Published'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    }`}
+                  >
+                    {page.status}
+                  </span>
+                </div>
+                <div className="text-[11px] text-white/50 font-mono">
+                  /{page.handle} (v{page.version})
+                </div>
+              </div>
+            </div>
+
+            {/* Device switcher in preview */}
+            <div className="flex items-center bg-white/10 rounded-lg p-0.5 border border-white/10">
+              <button
+                onClick={() => setStorefrontDevice('desktop')}
+                className={`p-1.5 px-3 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                  storefrontDevice === 'desktop' ? 'bg-white text-black shadow-xs' : 'text-white/70 hover:text-white'
+                }`}
+                title="Desktop View (100%)"
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Desktop</span>
+              </button>
+              <button
+                onClick={() => setStorefrontDevice('tablet')}
+                className={`p-1.5 px-3 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                  storefrontDevice === 'tablet' ? 'bg-white text-black shadow-xs' : 'text-white/70 hover:text-white'
+                }`}
+                title="Tablet View (768px frame)"
+              >
+                <Tablet className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Tablet</span>
+              </button>
+              <button
+                onClick={() => setStorefrontDevice('mobile')}
+                className={`p-1.5 px-3 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                  storefrontDevice === 'mobile' ? 'bg-white text-black shadow-xs' : 'text-white/70 hover:text-white'
+                }`}
+                title="Mobile View (375px frame)"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Mobile</span>
+              </button>
+            </div>
+
+            {/* Actions: Open in Storefront route, Publish, Close */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setShowStorefrontPreview(false);
+                  onNavigate(`/pages/${page.handle}?preview=true`);
+                }}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border border-white/15"
+                title="Open storefront route directly"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Open in Storefront</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handleSave('publish');
+                }}
+                disabled={isSaving}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                title="Publish changes live"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{page.status === 'Published' ? 'Update Live Page' : 'Publish to Live Store'}</span>
+              </button>
+
+              <button
+                onClick={() => setShowStorefrontPreview(false)}
+                className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors ml-2"
+                title="Close preview"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Preview Modal Content with Real Storefront CustomPage */}
+          <div className="flex-1 overflow-y-auto bg-[#E5E5E5] p-4 sm:p-8 flex flex-col items-center select-text">
+            <div
+              className={`transition-all duration-300 bg-white ${
+                storefrontDevice === 'tablet'
+                  ? 'w-[768px] min-h-[900px] shadow-2xl rounded-2xl border border-[#D4D4D4] overflow-hidden my-4'
+                  : storefrontDevice === 'mobile'
+                  ? 'w-[375px] min-h-[667px] shadow-2xl rounded-2xl border border-[#D4D4D4] overflow-hidden my-4'
+                  : 'w-full max-w-7xl min-h-screen shadow-xl rounded-2xl overflow-hidden'
+              }`}
+            >
+              <CustomPage
+                pageHandle={page.handle}
+                onNavigate={(path) => {
+                  setShowStorefrontPreview(false);
+                  onNavigate(path);
+                }}
+                adminToken={token}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Layers, Edit2, Trash2, Globe, Sparkles, X, CheckCircle2, AlertTriangle, Search, Package, Code } from 'lucide-react';
+import { Plus, Layers, Edit2, Trash2, Globe, Sparkles, X, CheckCircle2, AlertTriangle, Search, Package, Code, Image as ImageIcon } from 'lucide-react';
 import { SchemaManagerTab } from '../components/SchemaManagerTab.tsx';
+import { MediaPickerModal } from '../components/MediaPickerModal.tsx';
 
 interface AdminCollectionsPageProps {
   token: string;
@@ -26,6 +27,7 @@ export const AdminCollectionsPage: React.FC<AdminCollectionsPageProps> = ({ toke
   const [seoDescription, setSeoDescription] = useState('');
   const [assignedProducts, setAssignedProducts] = useState<string[]>([]);
   const [productSearch, setProductSearch] = useState('');
+  const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -370,7 +372,16 @@ export const AdminCollectionsPage: React.FC<AdminCollectionsPageProps> = ({ toke
                         />
                       </div>
                       <div>
-                        <label className="block text-[#737373] mb-1 font-semibold">Cover Image URL</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[#737373] font-semibold">Cover Image URL</label>
+                          <button
+                            type="button"
+                            onClick={() => setIsMediaPickerOpen(true)}
+                            className="text-[#E04F16] hover:underline flex items-center gap-1 font-semibold text-xs"
+                          >
+                            <ImageIcon className="w-3.5 h-3.5" /> Select from Media Library
+                          </button>
+                        </div>
                         <input
                           type="url"
                           value={image}
@@ -503,6 +514,14 @@ export const AdminCollectionsPage: React.FC<AdminCollectionsPageProps> = ({ toke
           </div>
         </div>
       )}
+
+      {/* Media Picker Modal */}
+      <MediaPickerModal
+        token={token}
+        isOpen={isMediaPickerOpen}
+        onClose={() => setIsMediaPickerOpen(false)}
+        onSelect={(url) => setImage(url)}
+      />
     </div>
   );
 };

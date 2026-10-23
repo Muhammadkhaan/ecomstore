@@ -188,7 +188,7 @@ export const AdminPagesPage: React.FC<AdminPagesPageProps> = ({ token, onNavigat
     }
   };
 
-  const handleSave = async (actionOverride?: 'draft' | 'publish') => {
+  const handleSave = async (actionOverride?: 'draft' | 'publish' | 'unpublish') => {
     setErrorMessage(null);
     if (!title.trim()) {
       showError('Page title is required');
@@ -214,11 +214,11 @@ export const AdminPagesPage: React.FC<AdminPagesPageProps> = ({ token, onNavigat
       }
     }
 
-    setIsSaving(true);
-
     const finalStatus = actionOverride === 'publish'
       ? 'Published'
-      : (actionOverride === 'draft' ? 'Draft' : status);
+      : actionOverride === 'unpublish'
+      ? 'Draft'
+      : (actionOverride === 'draft' ? (editingPage?.status === 'Published' ? 'Published' : 'Draft') : status);
 
     const payload = {
       title: title.trim(),
@@ -232,7 +232,11 @@ export const AdminPagesPage: React.FC<AdminPagesPageProps> = ({ token, onNavigat
       builderContent: parsedBuilderData,
       expectedVersion: editingPage ? currentVersion : undefined,
       changeSummary: editingPage
-        ? (actionOverride === 'publish' ? `Published v${currentVersion + 1}` : `Saved draft v${currentVersion + 1}`)
+        ? (actionOverride === 'publish'
+            ? `Published v${currentVersion + 1}`
+            : actionOverride === 'unpublish'
+            ? `Unpublished page (v${currentVersion + 1})`
+            : `Saved draft v${currentVersion + 1}`)
         : (finalStatus === 'Published' ? 'Initial publication' : 'Initial draft')
     };
 
@@ -458,14 +462,24 @@ export const AdminPagesPage: React.FC<AdminPagesPageProps> = ({ token, onNavigat
                       </td>
                       <td className="py-3 px-4 text-right space-x-1">
                         {onNavigate && (
-                          <button
-                            onClick={() => onNavigate(`/admin/pages/builder/${p.id}`)}
-                            className="px-2.5 py-1 bg-[#141414] hover:bg-[#2b2b2b] text-white rounded-lg text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm mr-1"
-                            title="Open in Visual Page Builder"
-                          >
-                            <Layers className="w-3.5 h-3.5 text-[#E04F16]" />
-                            <span>Visual Builder</span>
-                          </button>
+                          <>
+                            <button
+                              onClick={() => onNavigate(isPublished ? `/pages/${p.handle}` : `/pages/${p.handle}?preview=true`)}
+                              className="px-2.5 py-1 bg-white hover:bg-neutral-50 text-[#141414] border border-[#E5E5E5] rounded-lg text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors shadow-xs mr-1"
+                              title={isPublished ? 'View Live Page on Storefront' : 'Preview Draft Page in Storefront'}
+                            >
+                              <Eye className="w-3.5 h-3.5 text-neutral-600" />
+                              <span>{isPublished ? 'View Live' : 'Preview'}</span>
+                            </button>
+                            <button
+                              onClick={() => onNavigate(`/admin/pages/builder/${p.id}`)}
+                              className="px-2.5 py-1 bg-[#141414] hover:bg-[#2b2b2b] text-white rounded-lg text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm mr-1"
+                              title="Open in Visual Page Builder"
+                            >
+                              <Layers className="w-3.5 h-3.5 text-[#E04F16]" />
+                              <span>Visual Builder</span>
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => handleOpenEdit(p)}
@@ -834,6 +848,18 @@ export const AdminPagesPage: React.FC<AdminPagesPageProps> = ({ token, onNavigat
                 >
                   Close
                 </button>
+
+                {editingPage && editingPage.status === 'Published' && (
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => handleSave('unpublish')}
+                    className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-semibold rounded-xl text-xs transition-colors disabled:opacity-50"
+                    title="Revert page to draft and remove public access"
+                  >
+                    <span>Unpublish</span>
+                  </button>
+                )}
 
                 <button
                   type="button"

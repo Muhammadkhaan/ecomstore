@@ -26,6 +26,7 @@ export type PageBuilderSectionType =
   | 'faq'
   | 'testimonials'
   | 'newsletter'
+  | 'trust_signals'
   | 'custom_html';
 
 export interface PageBuilderBlock {

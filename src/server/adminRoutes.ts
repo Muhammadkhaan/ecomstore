@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { memoryStore, isUsingMemoryFallback, getPool } from './db.ts';
 import { validatePageBuilderData } from '../types/pageBuilder.ts';
+import { getImageDimensions } from './imageDimensions.ts';
 
 const uploadDir = path.join(process.cwd(), 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -507,15 +508,27 @@ adminRouter.put('/storefront/pages/:id', verifyAdminAuth, async (req: any, res) 
       status = 'Published';
       publishedContent = builderContent;
       publishedAt = now;
-    } else if (body.action === 'draft' || body.status === 'Draft') {
+    } else if (body.action === 'unpublish') {
       status = 'Draft';
-      // keep publishedContent intact as previous publication
+      // keep publishedContent intact as historical record, but storefront will not serve it
+    } else if (body.action === 'draft') {
+      // If currently published, preserve status as Published so live storefront remains live,
+      // while builderContent holds latest draft and publishedContent stays unchanged!
+      status = cur.status === 'Published' ? 'Published' : 'Draft';
+    } else if (body.status === 'Draft') {
+      status = 'Draft';
     } else if (body.status === 'Archived') {
       status = 'Archived';
     }
 
     const newVersion = (Number(cur.version) || 1) + 1;
-    const changeSummary = body.changeSummary || (body.action === 'publish' ? `Published version ${newVersion}` : `Saved draft v${newVersion}`);
+    const changeSummary = body.changeSummary || (
+      body.action === 'publish'
+        ? (cur.status === 'Published' ? `Updated published live page (v${newVersion})` : `Published page live (v${newVersion})`)
+        : body.action === 'unpublish'
+        ? `Unpublished page (v${newVersion}, reverted to Draft)`
+        : `Saved draft v${newVersion}`
+    );
 
     const updated = {
       ...cur,
@@ -605,15 +618,26 @@ adminRouter.put('/storefront/pages/:id', verifyAdminAuth, async (req: any, res) 
       status = 'Published';
       publishedContent = JSON.stringify(builderContent);
       publishedAt = new Date();
-    } else if (body.action === 'draft' || body.status === 'Draft') {
+    } else if (body.action === 'unpublish') {
       status = 'Draft';
       // keep publishedContent intact
+    } else if (body.action === 'draft') {
+      status = cur.status === 'Published' ? 'Published' : 'Draft';
+      // keep publishedContent intact
+    } else if (body.status === 'Draft') {
+      status = 'Draft';
     } else if (body.status === 'Archived') {
       status = 'Archived';
     }
 
     const newVersion = (Number(cur.version) || 1) + 1;
-    const changeSummary = body.changeSummary || (body.action === 'publish' ? `Published version ${newVersion}` : `Saved draft v${newVersion}`);
+    const changeSummary = body.changeSummary || (
+      body.action === 'publish'
+        ? (cur.status === 'Published' ? `Updated published live page (v${newVersion})` : `Published page live (v${newVersion})`)
+        : body.action === 'unpublish'
+        ? `Unpublished page (v${newVersion}, reverted to Draft)`
+        : `Saved draft v${newVersion}`
+    );
 
     await pool!.query(
       `UPDATE store_pages
@@ -906,11 +930,18 @@ adminRouter.delete('/storefront/pages/:id', verifyAdminAuth, async (req: any, re
 // Storefront Public Page Loader (supports published pages for public users, or draft previews for admins)
 adminRouter.get('/store/pages/:handleOrId', async (req: any, res) => {
   const { handleOrId } = req.params;
+  const isPreviewRequested = req.query.preview === 'true' || req.query.preview === 'draft';
   const authHeader = req.headers.authorization;
+  const queryToken = typeof req.query.token === 'string' ? req.query.token : undefined;
   let isAdmin = false;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
+
+  const tokenToVerify = (authHeader && authHeader.startsWith('Bearer '))
+    ? authHeader.split(' ')[1]
+    : queryToken;
+
+  if (tokenToVerify) {
     try {
-      const decoded: any = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+      const decoded: any = jwt.verify(tokenToVerify, JWT_SECRET);
       if (decoded && decoded.email) isAdmin = true;
     } catch {
       isAdmin = false;
@@ -919,58 +950,89 @@ adminRouter.get('/store/pages/:handleOrId', async (req: any, res) => {
 
   if (isUsingMemoryFallback()) {
     const item = memoryStore.storePages.find((p: any) => p.id === handleOrId || p.handle === handleOrId);
-    if (!item) return res.status(404).json({ error: 'Page not found' });
+    if (!item) return res.status(404).json({ error: 'This page does not exist or has not been published yet.' });
+
+    const page = mapDbPageToStorePage(item);
+    if (!page) return res.status(404).json({ error: 'This page does not exist or has not been published yet.' });
 
     if (item.status === 'Published') {
-      const page = mapDbPageToStorePage(item);
-      if (!page) return res.status(404).json({ error: 'Page not found' });
+      if (isAdmin && isPreviewRequested) {
+        return res.json({
+          page: {
+            ...page,
+            // builderContent contains the latest working draft
+          },
+          isPreview: true,
+          isPublished: true,
+          previewNotice: `Admin Preview: Viewing unpublished draft (v${page.version}) for live published page "/${page.handle}". Live storefront is currently displaying the published version.`,
+          hasDraftChanges: JSON.stringify(page.builderContent) !== JSON.stringify(page.publishedContent)
+        });
+      }
+
       return res.json({
         page: {
           ...page,
           builderContent: page.publishedContent || page.builderContent
         },
-        isPreview: false
+        isPreview: false,
+        isPublished: true
       });
     }
 
     if (isAdmin) {
       return res.json({
-        page: mapDbPageToStorePage(item),
+        page,
         isPreview: true,
-        previewNotice: `Viewing ${item.status} draft in admin preview mode.`
+        isPublished: false,
+        previewNotice: `Admin Preview: Viewing Draft page "/${page.handle}" (v${page.version}). This page is not accessible to public shoppers.`
       });
     }
 
-    return res.status(404).json({ error: 'Page not found or is in draft mode' });
+    return res.status(404).json({ error: 'This page does not exist or has not been published yet.' });
   }
 
   try {
     const pool = await getPool();
     const [rows]: any = await pool!.query('SELECT * FROM store_pages WHERE id = ? OR handle = ?', [handleOrId, handleOrId]);
-    if (rows.length === 0) return res.status(404).json({ error: 'Page not found' });
+    if (rows.length === 0) return res.status(404).json({ error: 'This page does not exist or has not been published yet.' });
     const item = rows[0];
 
+    const page = mapDbPageToStorePage(item);
+    if (!page) return res.status(404).json({ error: 'This page does not exist or has not been published yet.' });
+
     if (item.status === 'Published') {
-      const page = mapDbPageToStorePage(item);
-      if (!page) return res.status(404).json({ error: 'Page not found' });
+      if (isAdmin && isPreviewRequested) {
+        return res.json({
+          page: {
+            ...page
+          },
+          isPreview: true,
+          isPublished: true,
+          previewNotice: `Admin Preview: Viewing unpublished draft (v${page.version}) for live published page "/${page.handle}". Live storefront is currently displaying the published version.`,
+          hasDraftChanges: JSON.stringify(page.builderContent) !== JSON.stringify(page.publishedContent)
+        });
+      }
+
       return res.json({
         page: {
           ...page,
           builderContent: page.publishedContent || page.builderContent
         },
-        isPreview: false
+        isPreview: false,
+        isPublished: true
       });
     }
 
     if (isAdmin) {
       return res.json({
-        page: mapDbPageToStorePage(item),
+        page,
         isPreview: true,
-        previewNotice: `Viewing ${item.status} draft in admin preview mode.`
+        isPublished: false,
+        previewNotice: `Admin Preview: Viewing Draft page "/${page.handle}" (v${page.version}). This page is not accessible to public shoppers.`
       });
     }
 
-    res.status(404).json({ error: 'Page not found or is in draft mode' });
+    res.status(404).json({ error: 'This page does not exist or has not been published yet.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -978,68 +1040,154 @@ adminRouter.get('/store/pages/:handleOrId', async (req: any, res) => {
 
 // --- Media Library Endpoints ---
 adminRouter.get('/media', verifyAdminAuth, async (req, res) => {
+  const { search, type, sort } = req.query as { search?: string; type?: string; sort?: string };
+
   if (isUsingMemoryFallback()) {
-    return res.json({ media: memoryStore.media });
+    let items = [...memoryStore.media];
+    if (search) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        (m: any) =>
+          (m.name && m.name.toLowerCase().includes(q)) ||
+          (m.altText && m.altText.toLowerCase().includes(q)) ||
+          (m.url && m.url.toLowerCase().includes(q))
+      );
+    }
+    if (type && type !== 'all') {
+      if (type === 'image') items = items.filter((m: any) => m.fileType && m.fileType.startsWith('image/'));
+      else if (type === 'pdf') items = items.filter((m: any) => m.fileType === 'application/pdf');
+      else items = items.filter((m: any) => m.fileType === type);
+    }
+    if (sort === 'oldest') {
+      items.sort((a, b) => new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime());
+    } else if (sort === 'name_asc') {
+      items.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sort === 'name_desc') {
+      items.sort((a, b) => b.name.localeCompare(a.name));
+    } else if (sort === 'size_desc') {
+      items.sort((a, b) => (b.fileSize || 0) - (a.fileSize || 0));
+    } else if (sort === 'size_asc') {
+      items.sort((a, b) => (a.fileSize || 0) - (b.fileSize || 0));
+    } else {
+      items.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+    }
+    return res.json({ media: items });
   }
+
   try {
     const pool = await getPool();
-    const [rows]: any = await pool!.query('SELECT * FROM admin_media ORDER BY uploaded_at DESC');
-    res.json({ media: rows.map((r: any) => ({ ...r, altText: r.alt_text, fileSize: r.file_size, fileType: r.file_type, uploadedAt: r.uploaded_at })) });
+    let query = 'SELECT * FROM admin_media WHERE 1=1';
+    const params: any[] = [];
+
+    if (search) {
+      query += ' AND (name LIKE ? OR alt_text LIKE ? OR url LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+    if (type && type !== 'all') {
+      if (type === 'image') {
+        query += ' AND file_type LIKE "image/%"';
+      } else if (type === 'pdf') {
+        query += ' AND file_type = "application/pdf"';
+      } else {
+        query += ' AND file_type = ?';
+        params.push(type);
+      }
+    }
+
+    if (sort === 'oldest') {
+      query += ' ORDER BY uploaded_at ASC';
+    } else if (sort === 'name_asc') {
+      query += ' ORDER BY name ASC';
+    } else if (sort === 'name_desc') {
+      query += ' ORDER BY name DESC';
+    } else if (sort === 'size_desc') {
+      query += ' ORDER BY file_size DESC';
+    } else if (sort === 'size_asc') {
+      query += ' ORDER BY file_size ASC';
+    } else {
+      query += ' ORDER BY uploaded_at DESC';
+    }
+
+    const [rows]: any = await pool!.query(query, params);
+    const media = rows.map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      url: r.url,
+      altText: r.alt_text,
+      fileSize: r.file_size,
+      fileType: r.file_type,
+      dimensions: r.dimensions,
+      uploadedAt: r.uploaded_at
+    }));
+    res.json({ media });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-adminRouter.post('/media/upload', verifyAdminAuth, upload.array('files', 10), async (req: any, res) => {
+adminRouter.post('/media/upload', verifyAdminAuth, upload.array('files', 20), async (req: any, res) => {
   try {
     const files = req.files || [];
-    const { url, name } = req.body;
+    const { url, name, altText } = req.body;
 
-    let savedItems: any[] = [];
+    const savedItems: any[] = [];
 
     if (files.length > 0) {
       for (const f of files) {
+        const filePath = path.join(uploadDir, f.filename);
+        const dims = getImageDimensions(filePath);
+        const dimensionsStr = dims ? `${dims.width}x${dims.height}` : null;
+
         const item = {
-          id: `media-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          id: `media-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           name: f.originalname,
           url: `/uploads/${f.filename}`,
-          altText: f.originalname.replace(/\.[^/.]+$/, ''),
+          altText: altText || f.originalname.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
           fileSize: f.size,
           fileType: f.mimetype,
+          dimensions: dimensionsStr,
           uploadedAt: new Date().toISOString()
         };
         savedItems.push(item);
+
         if (isUsingMemoryFallback()) {
           memoryStore.media.unshift(item);
         } else {
           const pool = await getPool();
           await pool!.query(
-            'INSERT INTO admin_media (id, name, url, alt_text, file_size, file_type) VALUES (?, ?, ?, ?, ?, ?)',
-            [item.id, item.name, item.url, item.altText, item.fileSize, item.fileType]
+            'INSERT INTO admin_media (id, name, url, alt_text, file_size, file_type, dimensions) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [item.id, item.name, item.url, item.altText, item.fileSize, item.fileType, item.dimensions]
           );
         }
       }
       return res.status(201).json({ media: savedItems[0], items: savedItems });
     } else if (url && typeof url === 'string') {
+      const trimmedUrl = url.trim();
+      if (!/^https?:\/\//i.test(trimmedUrl) && !trimmedUrl.startsWith('/uploads/')) {
+        return res.status(400).json({ error: 'Please provide a valid HTTP or HTTPS image URL.' });
+      }
+
       const item = {
         id: `media-${Date.now()}`,
         name: name || 'External Asset',
-        url,
-        altText: name || 'External Asset',
+        url: trimmedUrl,
+        altText: altText || name || 'External Asset',
         fileSize: 0,
         fileType: 'image/external',
+        dimensions: null,
         uploadedAt: new Date().toISOString()
       };
+
       if (isUsingMemoryFallback()) {
         memoryStore.media.unshift(item);
       } else {
         const pool = await getPool();
         await pool!.query(
-          'INSERT INTO admin_media (id, name, url, alt_text, file_size, file_type) VALUES (?, ?, ?, ?, ?, ?)',
-          [item.id, item.name, item.url, item.altText, item.fileSize, item.fileType]
+          'INSERT INTO admin_media (id, name, url, alt_text, file_size, file_type, dimensions) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [item.id, item.name, item.url, item.altText, item.fileSize, item.fileType, item.dimensions]
         );
       }
-      return res.status(201).json({ media: item });
+      return res.status(201).json({ media: item, items: [item] });
     } else {
       return res.status(400).json({ error: 'No files uploaded or valid URL provided' });
     }
@@ -1051,70 +1199,183 @@ adminRouter.post('/media/upload', verifyAdminAuth, upload.array('files', 10), as
 adminRouter.put('/media/:id', verifyAdminAuth, async (req: any, res) => {
   const { id } = req.params;
   const { name, altText } = req.body;
+
   if (isUsingMemoryFallback()) {
     const item = memoryStore.media.find((m: any) => m.id === id);
-    if (!item) return res.status(404).json({ error: 'Media not found' });
-    if (name) item.name = name;
-    if (altText !== undefined) item.altText = altText;
+    if (!item) return res.status(404).json({ error: 'Media asset not found' });
+    if (name) item.name = name.trim();
+    if (altText !== undefined) item.altText = altText.trim();
     return res.json({ media: item });
   }
+
   try {
     const pool = await getPool();
-    await pool!.query('UPDATE admin_media SET name = COALESCE(?, name), alt_text = COALESCE(?, alt_text) WHERE id = ?', [name, altText, id]);
+    await pool!.query(
+      'UPDATE admin_media SET name = COALESCE(?, name), alt_text = COALESCE(?, alt_text) WHERE id = ?',
+      [name ? name.trim() : null, altText !== undefined ? altText.trim() : null, id]
+    );
     const [rows]: any = await pool!.query('SELECT * FROM admin_media WHERE id = ?', [id]);
-    res.json({ media: rows[0] });
+    if (rows.length === 0) return res.status(404).json({ error: 'Media asset not found' });
+    const r = rows[0];
+    res.json({
+      media: {
+        id: r.id,
+        name: r.name,
+        url: r.url,
+        altText: r.alt_text,
+        fileSize: r.file_size,
+        fileType: r.file_type,
+        dimensions: r.dimensions,
+        uploadedAt: r.uploaded_at
+      }
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-adminRouter.delete('/media/:id', verifyAdminAuth, async (req: any, res) => {
-  const { id } = req.params;
+// Helper function to check asset usage across products, collections, and custom pages
+async function checkMediaUsage(url: string): Promise<string[]> {
+  const usedIn: string[] = [];
   if (isUsingMemoryFallback()) {
-    const item = memoryStore.media.find((m: any) => m.id === id);
-    if (!item) return res.status(404).json({ error: 'Media not found' });
-    // check usage
-    const url = item.url;
-    let usedIn: string[] = [];
-    memoryStore.products.forEach(p => {
+    memoryStore.products.forEach((p: any) => {
       if (p.image === url || p.secondaryImage === url) usedIn.push(`Product: ${p.title}`);
     });
-    memoryStore.collections.forEach(c => {
+    memoryStore.collections.forEach((c: any) => {
       if (c.image === url) usedIn.push(`Collection: ${c.title}`);
     });
-    if (usedIn.length > 0 && !req.query.force) {
-      return res.status(400).json({ error: 'Asset is currently in use', usedIn });
+    memoryStore.storePages.forEach((pg: any) => {
+      const bStr = JSON.stringify(pg.builderContent || {});
+      const pStr = JSON.stringify(pg.publishedContent || {});
+      if (bStr.includes(url) || pStr.includes(url)) usedIn.push(`Page: ${pg.title}`);
+    });
+    return usedIn;
+  }
+
+  try {
+    const pool = await getPool();
+    const [prodRows]: any = await pool!.query('SELECT title, image, secondary_image FROM admin_products');
+    prodRows.forEach((p: any) => {
+      if (p.image === url || p.secondary_image === url) usedIn.push(`Product: ${p.title}`);
+    });
+
+    const [colRows]: any = await pool!.query('SELECT title, image FROM admin_collections');
+    colRows.forEach((c: any) => {
+      if (c.image === url) usedIn.push(`Collection: ${c.title}`);
+    });
+
+    const [pageRows]: any = await pool!.query('SELECT title, builder_content, published_content FROM store_pages');
+    pageRows.forEach((pg: any) => {
+      const bStr = typeof pg.builder_content === 'string' ? pg.builder_content : JSON.stringify(pg.builder_content || {});
+      const pStr = typeof pg.published_content === 'string' ? pg.published_content : JSON.stringify(pg.published_content || {});
+      if (bStr.includes(url) || pStr.includes(url)) usedIn.push(`Page: ${pg.title}`);
+    });
+  } catch (e) {
+    console.warn('Error checking media references:', e);
+  }
+
+  return usedIn;
+}
+
+function unlinkPhysicalFile(url: string) {
+  if (url && url.startsWith('/uploads/')) {
+    const filename = path.basename(url);
+    const filePath = path.join(uploadDir, filename);
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch (err) {
+        console.warn(`Could not delete file ${filePath}:`, err);
+      }
     }
+  }
+}
+
+adminRouter.delete('/media/:id', verifyAdminAuth, async (req: any, res) => {
+  const { id } = req.params;
+  const isForce = req.query.force === 'true' || req.query.force === true;
+
+  if (isUsingMemoryFallback()) {
+    const item = memoryStore.media.find((m: any) => m.id === id);
+    if (!item) return res.status(404).json({ error: 'Media asset not found' });
+
+    const usedIn = await checkMediaUsage(item.url);
+    if (usedIn.length > 0 && !isForce) {
+      return res.status(400).json({ error: 'Asset is currently in use across storefront content', usedIn });
+    }
+
+    unlinkPhysicalFile(item.url);
     memoryStore.media = memoryStore.media.filter((m: any) => m.id !== id);
-    return res.json({ success: true });
+    return res.json({ success: true, message: 'Media asset deleted successfully' });
   }
 
   try {
     const pool = await getPool();
     const [mRows]: any = await pool!.query('SELECT * FROM admin_media WHERE id = ?', [id]);
-    if (mRows.length === 0) return res.status(404).json({ error: 'Media not found' });
-    const url = mRows[0].url;
+    if (mRows.length === 0) return res.status(404).json({ error: 'Media asset not found' });
 
-    // Check usage in products & collections
-    const [prodRows]: any = await pool!.query('SELECT title, image, secondary_image FROM admin_products');
-    const [colRows]: any = await pool!.query('SELECT title, image FROM admin_collections');
-    let usedIn: string[] = [];
-    prodRows.forEach((p: any) => {
-      if (p.image === url || p.secondary_image === url) usedIn.push(`Product: ${p.title}`);
-    });
-    colRows.forEach((c: any) => {
-      if (c.image === url) usedIn.push(`Collection: ${c.title}`);
-    });
+    const item = mRows[0];
+    const usedIn = await checkMediaUsage(item.url);
 
-    if (usedIn.length > 0 && req.query.force !== 'true') {
-      return res.status(400).json({ error: 'Asset is currently in use across products or collections', usedIn });
+    if (usedIn.length > 0 && !isForce) {
+      return res.status(400).json({ error: 'Asset is currently in use across storefront content', usedIn });
     }
 
     await pool!.query('DELETE FROM admin_media WHERE id = ?', [id]);
-    res.json({ success: true });
+    unlinkPhysicalFile(item.url);
+
+    res.json({ success: true, message: 'Media asset deleted successfully' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+adminRouter.post('/media/bulk-delete', verifyAdminAuth, async (req: any, res) => {
+  const { ids, force } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Please provide an array of media IDs to delete.' });
+  }
+
+  let deletedCount = 0;
+  const blockedItems: { id: string; name: string; usedIn: string[] }[] = [];
+
+  for (const id of ids) {
+    try {
+      if (isUsingMemoryFallback()) {
+        const item = memoryStore.media.find((m: any) => m.id === id);
+        if (!item) continue;
+        const usedIn = await checkMediaUsage(item.url);
+        if (usedIn.length > 0 && !force) {
+          blockedItems.push({ id: item.id, name: item.name, usedIn });
+          continue;
+        }
+        unlinkPhysicalFile(item.url);
+        memoryStore.media = memoryStore.media.filter((m: any) => m.id !== id);
+        deletedCount++;
+      } else {
+        const pool = await getPool();
+        const [rows]: any = await pool!.query('SELECT * FROM admin_media WHERE id = ?', [id]);
+        if (rows.length === 0) continue;
+        const item = rows[0];
+        const usedIn = await checkMediaUsage(item.url);
+        if (usedIn.length > 0 && !force) {
+          blockedItems.push({ id: item.id, name: item.name, usedIn });
+          continue;
+        }
+        await pool!.query('DELETE FROM admin_media WHERE id = ?', [id]);
+        unlinkPhysicalFile(item.url);
+        deletedCount++;
+      }
+    } catch (e) {
+      console.error(`Error deleting media ${id}:`, e);
+    }
+  }
+
+  res.json({
+    success: true,
+    deletedCount,
+    blockedItems
+  });
 });
 
 // --- Public Storefront Endpoints ---
@@ -1412,19 +1673,24 @@ adminRouter.post('/products/:id/duplicate', verifyAdminAuth, async (req: any, re
 });
 
 adminRouter.post('/products', verifyAdminAuth, async (req: any, res) => {
-  const body = req.body;
-  if (!body.title || body.price === undefined) {
-    return res.status(400).json({ error: 'Title and price are required' });
-  }
+  try {
+    const body = req.body || {};
+    const title = (body.title || body.name || '').trim();
+    const priceVal = body.price !== undefined ? body.price : body.priceUSD;
+    if (!title || priceVal === undefined) {
+      return res.status(400).json({ error: 'Title (or name) and price are required' });
+    }
 
-  const id = `prod-${Date.now()}`;
+    const id = body.id || `prod-${Date.now()}`;
   const newProduct = {
     id,
-    title: body.title,
+    title,
+    name: title,
     description: body.description || '',
     designer: body.designer || 'LAAM Pret Couture',
     category: body.category || 'pret',
-    price: Number(body.price),
+    price: Number(priceVal),
+    priceUSD: Number(priceVal),
     compareAtPrice: body.compareAtPrice ? Number(body.compareAtPrice) : null,
     costPrice: body.costPrice ? Number(body.costPrice) : null,
     sku: body.sku || `LAAM-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -1437,9 +1703,9 @@ adminRouter.post('/products', verifyAdminAuth, async (req: any, res) => {
     variants: body.variants || ['XS', 'S', 'M', 'L', 'XL'],
     collections: body.collections || [body.category || 'pret'],
     shippingDetails: body.shippingDetails || { weightKg: 0.8, dimensions: '30x20x5 cm', shippingClass: 'Standard' },
-    seoTitle: body.seoTitle || body.title,
+    seoTitle: body.seoTitle || title,
     seoDescription: body.seoDescription || (body.description ? body.description.slice(0, 155) : ''),
-    urlSlug: body.urlSlug || body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    urlSlug: body.urlSlug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
     createdAt: new Date().toISOString()
   };
 
@@ -1455,9 +1721,8 @@ adminRouter.post('/products', verifyAdminAuth, async (req: any, res) => {
     return res.status(201).json({ product: newProduct });
   }
 
-  try {
-    const pool = await getPool();
-    await pool!.query(
+  const pool = await getPool();
+  await pool!.query(
       `INSERT INTO admin_products (id, title, description, designer, category, price, compare_at_price, cost_price, sku, barcode, inventory, status, image, images, variants, collections, shipping_details, seo_title, seo_description, url_slug)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -1504,10 +1769,15 @@ adminRouter.put('/products/:id', verifyAdminAuth, async (req: any, res) => {
     if (idx === -1) return res.status(404).json({ error: 'Product not found' });
 
     const existingProd = memoryStore.products[idx] as any;
+    const resolvedTitle = body.title || body.name || existingProd.title;
+    const resolvedPrice = body.price !== undefined ? Number(body.price) : (body.priceUSD !== undefined ? Number(body.priceUSD) : existingProd.price);
     const updated = {
       ...existingProd,
       ...body,
-      price: body.price !== undefined ? Number(body.price) : existingProd.price,
+      title: resolvedTitle,
+      name: resolvedTitle,
+      price: resolvedPrice,
+      priceUSD: resolvedPrice,
       inventory: body.inventory !== undefined ? Number(body.inventory) : existingProd.inventory,
       images: Array.isArray(body.images) ? body.images : existingProd.images,
       image: Array.isArray(body.images) && body.images.length > 0 ? body.images[0] : (body.image || existingProd.image),

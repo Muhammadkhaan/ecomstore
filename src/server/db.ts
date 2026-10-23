@@ -77,13 +77,23 @@ class MemoryStore {
     { id: 'col-2', title: 'Festive Formals 2026', handle: 'festive-formals', type: 'rule', rule: 'category = festive', status: 'Active', image: PRODUCTS[4].image },
   ];
 
-  media = PRODUCTS.slice(0, 8).map((p, i) => ({
+  media: Array<{
+    id: string;
+    name: string;
+    url: string;
+    altText: string;
+    fileSize: number;
+    fileType: string;
+    dimensions: string | null;
+    uploadedAt: string;
+  }> = PRODUCTS.slice(0, 8).map((p, i) => ({
     id: `media-${i + 1}`,
     name: p.name,
     url: p.image,
     altText: p.name,
     fileSize: 245000,
     fileType: 'image/jpeg',
+    dimensions: '1200x1600',
     uploadedAt: new Date(Date.now() - i * 86400000).toISOString()
   }));
 
@@ -449,9 +459,16 @@ export async function initDatabase() {
         alt_text VARCHAR(255),
         file_size INT,
         file_type VARCHAR(100),
+        dimensions VARCHAR(50),
         uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    try {
+      await connection.query('ALTER TABLE admin_media ADD COLUMN dimensions VARCHAR(50) NULL;');
+    } catch {
+      // Column already exists or table freshly created
+    }
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS admin_schemas (
